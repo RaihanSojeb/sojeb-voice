@@ -97,9 +97,9 @@
 </head>
 <body>
   <div class="app-card">
-    <div class="badge">⚡ ডিরেক্ট ভয়েস সিস্টেম</div>
+    <div class="badge">⚡ স্মার্ট ভয়েস সিস্টেম</div>
     <h1>সজীব টেলিকম</h1>
-    <p class="hint">মাইকে চাপ দিয়ে বলুন:<br><b>"সজীব বিকাশ ৫০০ বাকি"</b></p>
+    <p class="hint">মাইকে চাপ দিয়ে বলুন:<br><b>"সজীব বিকাশ ১০ হাজার বাকি"</b></p>
 
     <button type="button" id="micBtn" class="mic-btn">🎤</button>
     <input type="text" id="entryInput" placeholder="ভয়েস বলুন বা লিখুন...">
@@ -121,9 +121,108 @@
       statusBox.innerText = msg;
     }
 
+    // বাংলা কথায় লেখা সংখ্যাকে সরাসরি ডিজিটে রূপান্তর করার স্মার্ট ফাংশন
+    function normalizeBanglaNumbers(text) {
+      const bnToEn = { '০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9' };
+      let res = String(text).replace(/[০-৯]/g, m => bnToEn[m]);
+
+      const wordMap = {
+        'এক': 1, 'দুই': 2, 'তিন': 3, 'চার': 4, 'পাঁচ': 5, 'পাচ': 5, 'ছয়': 6, 'ছয়': 6,
+        'সাত': 7, 'আট': 8, 'নয়': 9, 'নয়': 9, 'দশ': 10, 'এগারো': 11, 'বারো': 12,
+        'তেরো': 13, 'চৌদ্দ': 14, 'পনেরো': 15, 'ষোল': 16, 'সতেরো': 17, 'আঠারো': 18,
+        'উনিশ': 19, 'বিশ': 20, 'পঁচিশ': 25, 'ত্রিশ': 30, 'চল্লিশ': 40, 'পঞ্চাশ': 50,
+        'ষাট': 60, 'সত্তর': 70, 'আশি': 80, 'নব্বই': 90
+      };
+
+      // ভগ্নাংশের বিশেষ কথা (দেড়, আড়াই, সাড়ে)
+      res = res.replace(/দেড়\s*হাজার/g, "1500").replace(/দেড়\s*শত?|দেড়শ/g, "150");
+      res = res.replace(/আড়াই\s*হাজার/g, "2500").replace(/আড়াই\s*শত?|আড়াইশ/g, "250");
+      res = res.replace(/সাড়ে\s*(\d+|[অ-হ]+)\s*হাজার/g, (m, p1) => {
+        let num = parseFloat(p1) || wordMap[p1] || 0;
+        return num ? String((num * 1000) + 500) : m;
+      });
+      res = res.replace(/সাড়ে\s*(\d+|[অ-হ]+)\s*(শত|শো|শ)/g, (m, p1) => {
+        let num = parseFloat(p1) || wordMap[p1] || 0;
+        return num ? String((num * 100) + 50) : m;
+      });
+
+      // একক ও যৌগিক সংখ্যা রূপান্তর (যেমন: "১০ হাজার ৫ শত" -> "10500", "১৫ শত" -> "1500")
+      const tokens = res.split(/\s+/);
+      let output = [];
+      let currentSum = 0;
+      let hasNumber = false;
+
+      for (let i = 0; i < tokens.length; i++) {
+        let tok = tokens[i];
+        let val = null;
+
+        let attachedMatch = tok.match(/^(\d+(?:\.\d+)?)(হাজার|লক্ষ|লাখ|শত|শো|শ)$/);
+        if (attachedMatch) {
+          let base = parseFloat(attachedMatch[1]);
+          let unit = attachedMatch[2];
+          if (unit === 'লক্ষ' || unit === 'লাখ') currentSum += base * 100000;
+          else if (unit === 'হাজার') currentSum += base * 1000;
+          else currentSum += base * 100;
+          hasNumber = true;
+          continue;
+        }
+
+        if (/^\d+(?:\.\d+)?$/.test(tok)) {
+          val = parseFloat(tok);
+        } else if (wordMap[tok] !== undefined) {
+          val = wordMap[tok];
+        }
+
+        if (val !== null) {
+          let nextTok = tokens[i + 1] || "";
+          if (nextTok === 'লক্ষ' || nextTok === 'লাখ') {
+            currentSum += val * 100000;
+            hasNumber = true;
+            i++;
+          } else if (nextTok === 'হাজার') {
+            currentSum += val * 1000;
+            hasNumber = true;
+            i++;
+          } else if (nextTok === 'শত' || nextTok === 'শো' || nextTok === 'শ') {
+            currentSum += val * 100;
+            hasNumber = true;
+            i++;
+          } else {
+            if (hasNumber) {
+              currentSum += val;
+            } else {
+              currentSum = val;
+              hasNumber = true;
+            }
+          }
+        } else if (tok === 'হাজার' && !hasNumber) {
+          currentSum += 1000;
+          hasNumber = true;
+        } else if ((tok === 'শত' || tok === 'শো' || tok === 'শ') && !hasNumber) {
+          currentSum += 100;
+          hasNumber = true;
+        } else {
+          if (hasNumber) {
+            output.push(String(currentSum));
+            currentSum = 0;
+            hasNumber = false;
+          }
+          output.push(tok);
+        }
+      }
+      if (hasNumber) {
+        output.push(String(currentSum));
+      }
+
+      return output.join(" ");
+    }
+
     async function submitData() {
-      const val = entryInput.value.trim();
-      if (!val) return;
+      const rawVal = entryInput.value.trim();
+      if (!rawVal) return;
+
+      const normalizedVal = normalizeBanglaNumbers(rawVal);
+      entryInput.value = normalizedVal;
 
       saveBtn.disabled = true;
       saveBtn.innerText = "⏳ সেভ হচ্ছে...";
@@ -132,7 +231,7 @@
         const response = await fetch(SCRIPT_URL, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ text: val })
+          body: JSON.stringify({ text: normalizedVal })
         });
         const res = await response.json();
         if (res.success) {
@@ -165,7 +264,7 @@
 
       recognition.onresult = function(event) {
         const transcript = event.results[0][0].transcript;
-        entryInput.value = transcript;
+        entryInput.value = normalizeBanglaNumbers(transcript);
         submitData();
       };
 
