@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>সজীব টেলিকম - ভয়েস হিসাব</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      margin: 0;
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .app-card {
+      background: #ffffff;
+      padding: 28px 20px;
+      border-radius: 24px;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+    }
+    .badge {
+      background: #dcfce7;
+      color: #166534;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 5px 14px;
+      border-radius: 20px;
+      display: inline-block;
+      margin-bottom: 10px;
+    }
+    h1 { margin: 0 0 6px; color: #0f172a; font-size: 26px; }
+    p.hint { margin: 0 0 24px; color: #64748b; font-size: 15px; }
+    .mic-btn {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      font-size: 46px;
+      cursor: pointer;
+      box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4);
+      margin-bottom: 22px;
+      transition: 0.2s;
+    }
+    .mic-btn.listening {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+      70% { transform: scale(1.08); box-shadow: 0 0 0 22px rgba(239, 68, 68, 0); }
+      100% { transform: scale(1); }
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 16px;
+      font-size: 19px;
+      border: 2px solid #cbd5e1;
+      border-radius: 14px;
+      text-align: center;
+      margin-bottom: 14px;
+    }
+    .save-btn {
+      width: 100%;
+      padding: 16px;
+      font-size: 19px;
+      font-weight: 700;
+      background: #16a34a;
+      color: white;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+    }
+    .save-btn:disabled { background: #94a3b8; }
+    .status {
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      display: none;
+      white-space: pre-line;
+      line-height: 1.5;
+    }
+    .status.ok { display: block; background: #dcfce7; color: #166534; }
+    .status.err { display: block; background: #fee2e2; color: #991b1b; }
+    .status.info { display: block; background: #e0f2fe; color: #075985; }
+  </style>
+</head>
+<body>
+  <div class="app-card">
+    <div class="badge">⚡ ডিরেক্ট ভয়েস সিস্টেম</div>
+    <h1>সজীব টেলিকম</h1>
+    <p class="hint">মাইকে চাপ দিয়ে বলুন:<br><b>"সজীব বিকাশ ৫০০ বাকি"</b></p>
+
+    <button type="button" id="micBtn" class="mic-btn">🎤</button>
+    <input type="text" id="entryInput" placeholder="ভয়েস বলুন বা লিখুন...">
+    <button type="button" id="saveBtn" class="save-btn">✅ শিটে সেভ করুন</button>
+
+    <div id="statusBox" class="status"></div>
+  </div>
+
+  <script>
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw2xhSgVJBJ6KUb2i4NBhe_gWRne1R_egTrbqW1yS1ST-gd3hxFsAwiI2pQwagmVsy0AA/exec";
+
+    const micBtn = document.getElementById('micBtn');
+    const entryInput = document.getElementById('entryInput');
+    const saveBtn = document.getElementById('saveBtn');
+    const statusBox = document.getElementById('statusBox');
+
+    function showStatus(msg, type) {
+      statusBox.className = "status " + type;
+      statusBox.innerText = msg;
+    }
+
+    async function submitData() {
+      const val = entryInput.value.trim();
+      if (!val) return;
+
+      saveBtn.disabled = true;
+      saveBtn.innerText = "⏳ সেভ হচ্ছে...";
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ text: val })
+        });
+        const res = await response.json();
+        if (res.success) {
+          showStatus(res.message, "ok");
+          entryInput.value = "";
+        } else {
+          showStatus(res.message, "err");
+        }
+      } catch (err) {
+        showStatus("⚠️ কানেকশন ত্রুটি! ইন্টারনেট বা SCRIPT_URL চেক করুন।", "err");
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerText = "✅ শিটে সেভ করুন";
+      }
+    }
+
+    saveBtn.addEventListener('click', submitData);
+    entryInput.addEventListener('keypress', function(e) { if (e.key === 'Enter') submitData(); });
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'bn-BD';
+      recognition.interimResults = false;
+
+      recognition.onstart = function() {
+        micBtn.classList.add('listening');
+        showStatus("🎙️ শুনছি... কথা বলুন", "info");
+      };
+
+      recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        entryInput.value = transcript;
+        submitData();
+      };
+
+      recognition.onerror = function(event) {
+        micBtn.classList.remove('listening');
+        showStatus("⚠️ ভয়েস ত্রুটি: " + event.error, "err");
+      };
+
+      recognition.onend = function() {
+        micBtn.classList.remove('listening');
+      };
+
+      micBtn.addEventListener('click', function() {
+        try { recognition.start(); } catch (e) { recognition.stop(); }
+      });
+    } else {
+      showStatus("এই ব্রাউজারে ভয়েস সাপোর্ট নেই, Chrome ব্যবহার করুন।", "err");
+    }
+  </script>
+</body>
+</html>
